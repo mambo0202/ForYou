@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>For You ❤️</title>
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #07040e;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+<canvas id="canvas"></canvas>
+
+<script>
+
+// ==================================================
+// CANVAS
+// ==================================================
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+
+// ==================================================
+// НАСТРОЙКИ
+// ==================================================
+
+const TEXT = "I love you";
+
+const TEXT_COUNT = 100;
+
+const HEART_SCALE = 18;
+
+
+// Скорость движения надписей
+const ROTATION_SPEED = 0.35;
+
+
+// --------------------------------------------------
+// Время стадий
+// --------------------------------------------------
+
+const CENTER_TIME = 2.5;
+const ASSEMBLE_TIME = 7.0;
+const HEART_TIME = 8.0;
+const DISSOLVE_TIME = 7.0;
+
+
+// --------------------------------------------------
+// Пульсация
+// --------------------------------------------------
+
+const PULSE_SPEED = 2.2;
+const PULSE_STRENGTH = 0.055;
+
+
+// --------------------------------------------------
+// Свечение
+// --------------------------------------------------
+
+const GLOW_BLUR = 18;
+const GLOW_STRENGTH = 0.65;
+
+
+// --------------------------------------------------
+// Фоновые частицы
+// --------------------------------------------------
+
+const BACKGROUND_PARTICLES = 70;
+
+
+// ==================================================
+// СОСТОЯНИЯ
+// ==================================================
+
+const CENTER = 0;
+const ASSEMBLE = 1;
+const HEART = 2;
+const DISSOLVE = 3;
+
+let state = CENTER;
+
+let stateTime = 0;
+
+
+// ==================================================
+// РАЗМЕР CANVAS
+// ==================================================
+
+function resizeCanvas() {
+
+    canvas.width =
+        window.innerWidth;
+
+    canvas.height =
+        window.innerHeight;
+}
+
+window.addEventListener(
+    "resize",
+    resizeCanvas
+);
+
+resizeCanvas();
+
+
+// ==================================================
+// УРАВНЕНИЕ СЕРДЦА
+// ==================================================
+
+function heartPoint(t) {
+
+    const x =
+        16 * Math.pow(
+            Math.sin(t),
+            3
+        );
+
+    const y =
+        13 * Math.cos(t)
+        - 5 * Math.cos(2 * t)
+        - 2 * Math.cos(3 * t)
+        - Math.cos(4 * t);
+
+
+    return {
+
+        x:
+            canvas.width / 2
+            + x * HEART_SCALE,
+
+        y:
+            canvas.height / 2
+            - y * HEART_SCALE
+    };
+}
+
+
+// ==================================================
+// ПЛАВНАЯ ФУНКЦИЯ
+// ==================================================
+
+function smootherStep(t) {
+
+    t = Math.max(
+        0,
+        Math.min(1, t)
+    );
+
+
+    return (
+        t * t * t
+        * (
+            t * (
+                t * 6 - 15
+            ) + 10
+        )
+    );
+}
+
+
+// ==================================================
+// ПОЛОЖЕНИЕ НА СЕРДЦЕ
+// ==================================================
+
+function getHeartPosition(
+    index,
+    rotation = 0
+) {
+
+    let t =
+        (
+            index
+            / TEXT_COUNT
+        )
+        * Math.PI
+        * 2;
+
+
+    /*
+        Отрицательное значение
+        = движение по часовой стрелке.
+    */
+
+    t -= rotation;
+
+
+    return heartPoint(t);
+}
+
+
+// ==================================================
+// НАДПИСИ
+// ==================================================
+
+const particles = [];
+
+
+for (
+    let i = 0;
+    i < TEXT_COUNT;
+    i++
+) {
+
+    particles.push({
+
+        index: i,
+
+
+        // --------------------------------------------------
+        // Текущая позиция
+        // --------------------------------------------------
+
+        x:
+            canvas.width / 2,
+
+        y:
+            canvas.height / 2,
+
+
+        // --------------------------------------------------
+        // Параметры движения в центре
+        // --------------------------------------------------
+
+        centerAngle:
+            Math.random()
+            * Math.PI
+            * 2,
+
+        centerRadius:
+            Math.random()
+            * 30,
+
+
+        // --------------------------------------------------
+        // Индивидуальные параметры
+        // --------------------------------------------------
+
+        offset:
+            Math.random()
+            * Math.PI
+            * 2,
+
+
+        size:
+            14
+            + Math.random() * 4,
+
+
+        brightness:
+            0.82
+            + Math.random() * 0.18,
+
+
+        // --------------------------------------------------
+        // Позиция начала сборки
+        // --------------------------------------------------
+
+        startX: 0,
+        startY: 0,
+
+
+        // --------------------------------------------------
+        // Параметры растворения
+        // --------------------------------------------------
+
+        dissolveAngle:
+            Math.random()
+            * Math.PI
+            * 2,
+
+        dissolveSpeed:
+            0.25
+            + Math.random() * 0.8,
+
+        dissolveDistance:
+            40
+            + Math.random() * 130,
+
+        dissolveDelay:
+            Math.random(),
+
+        dissolveRotation:
+            (
+                Math.random()
+                - 0.5
+            ) * 2
+    });
+}
+
+
+// ==================================================
+// ФОНОВЫЕ ЧАСТИЦЫ
+// ==================================================
+
+const backgroundParticles = [];
+
+
+for (
+    let i = 0;
+    i < BACKGROUND_PARTICLES;
+    i++
+) {
+
+    backgroundParticles.push({
+
+        x:
+            Math.random()
+            * canvas.width,
+
+        y:
+            Math.random()
+            * canvas.height,
+
+        radius:
+            0.5
+            + Math.random() * 1.4,
+
+        alpha:
+            0.12
+            + Math.random() * 0.28,
+
+        speed:
+            0.08
+            + Math.random() * 0.18,
+
+        phase:
+            Math.random()
+            * Math.PI
+            * 2
+    });
+}
+
+
+// ==================================================
+// СМЕНА СОСТОЯНИЯ
+// ==================================================
+
+function changeState(
+    newState
+) {
+
+    state = newState;
+
+    stateTime = 0;
+
+
+    // ==================================================
+    // ЦЕНТР
+    // ==================================================
+
+    if (
+        state === CENTER
+    ) {
+
+        for (
+            const particle
+            of particles
+        ) {
+
+            particle.x =
+                canvas.width / 2;
+
+            particle.y =
+                canvas.height / 2;
+
+
+            particle.centerAngle =
+                Math.random()
+                * Math.PI
+                * 2;
+
+            particle.centerRadius =
+                Math.random()
+                * 35;
+        }
+    }
+
+
+    // ==================================================
+    // СБОРКА
+    // ==================================================
+
+    if (
+        state === ASSEMBLE
+    ) {
+
+        for (
+            const particle
+            of particles
+        ) {
+
+            particle.startX =
+                particle.x;
+
+            particle.startY =
+                particle.y;
+        }
+    }
+
+
+    // ==================================================
+    // РАСТВОРЕНИЕ
+    // ==================================================
+
+    if (
+        state === DISSOLVE
+    ) {
+
+        for (
+            const particle
+            of particles
+        ) {
+
+            particle.dissolveAngle =
+                Math.random()
+                * Math.PI
+                * 2;
+
+
+            particle.dissolveSpeed =
+                0.25
+                + Math.random()
+                * 0.8;
+
+
+            particle.dissolveDistance =
+                40
+                + Math.random()
+                * 130;
+
+
+            /*
+                Каждая надпись получает
+                собственную задержку.
+
+                Поэтому сердце исчезает
+                постепенно, а не одновременно.
+            */
+
+            particle.dissolveDelay =
+                Math.random();
+
+
+            particle.dissolveRotation =
+                (
+                    Math.random()
+                    - 0.5
+                ) * 2;
+        }
+    }
+}
+
+
+// ==================================================
+// ОБНОВЛЕНИЕ ФОНА
+// ==================================================
+
+function updateBackground(dt) {
+
+    for (
+        const particle
+        of backgroundParticles
+    ) {
+
+        particle.y -=
+            particle.speed
+            * 60
+            * dt;
+
+
+        if (
+            particle.y < -10
+        ) {
+
+            particle.y =
+                canvas.height + 10;
+
+            particle.x =
+                Math.random()
+                * canvas.width;
+        }
+    }
+}
+
+
+// ==================================================
+// ОБНОВЛЕНИЕ
+// ==================================================
+
+function update(dt) {
+
+    stateTime += dt;
+
+
+    // ==================================================
+    // ЦЕНТР
+    // ==================================================
+
+    if (
+        state === CENTER
+    ) {
+
+        for (
+            const particle
+            of particles
+        ) {
+
+            /*
+                Надписи находятся около центра,
+                но слегка плавают вокруг него.
+            */
+
+            const angle =
+                particle.centerAngle
+                + stateTime
+                * particle.dissolveSpeed
+                * 0.3;
+
+
+            const radius =
+                particle.centerRadius
+                + Math.sin(
+                    stateTime * 1.2
+                    + particle.offset
+                ) * 5;
+
+
+            const targetX =
+                canvas.width / 2
+                + Math.cos(angle)
+                * radius;
+
+
+            const targetY =
+                canvas.height / 2
+                + Math.sin(angle)
+                * radius;
+
+
+            const smooth =
+                1
+                - Math.exp(
+                    -7 * dt
+                );
+
+
+            particle.x +=
+                (
+                    targetX
+                    - particle.x
+                ) * smooth;
+
+
+            particle.y +=
+                (
+                    targetY
+                    - particle.y
+                ) * smooth;
+        }
+
+
+        if (
+            stateTime >= CENTER_TIME
+        ) {
+
+            changeState(
+                ASSEMBLE
+            );
+        }
+    }
+
+
+    // ==================================================
+    // СБОРКА
+    // ==================================================
+
+    else if (
+        state === ASSEMBLE
+    ) {
+
+        let progress =
+            stateTime
+            / ASSEMBLE_TIME;
+
+
+        progress =
+            smootherStep(
+                progress
+            );
+
+
+        for (
+            const particle
+            of particles
+        ) {
+
+            const target =
+                getHeartPosition(
+                    particle.index
+                );
+
+
+            particle.x =
+                particle.startX
+                + (
+                    target.x
+                    - particle.startX
+                )
+                * progress;
+
+
+            particle.y =
+                particle.startY
+                + (
+                    target.y
+                    - particle.startY
+                )
+                * progress;
+        }
+
+
+        if (
+            stateTime >= ASSEMBLE_TIME
+        ) {
+
+            changeState(
+                HEART
+            );
+        }
+    }
+
+
+    // ==================================================
+    // СЕРДЦЕ
+    // ==================================================
+
+    else if (
+        state === HEART
+    ) {
+
+        /*
+            Само сердце НЕ вращается.
+
+            Только надписи перемещаются
+            по неподвижному контуру.
+        */
+
+
+        const rotation =
+            stateTime
+            * ROTATION_SPEED;
+
+
+        const pulse =
+            1
+            + Math.sin(
+                stateTime
+                * PULSE_SPEED
+            )
+            * PULSE_STRENGTH;
+
+
+        for (
+            const particle
+            of particles
+        ) {
+
+            const target =
+                getHeartPosition(
+                    particle.index,
+                    rotation
+                );
+
+
+            const centerX =
+                canvas.width / 2;
+
+            const centerY =
+                canvas.height / 2;
+
+
+            const targetX =
+                centerX
+                + (
+                    target.x
+                    - centerX
+                ) * pulse;
+
+
+            const targetY =
+                centerY
+                + (
+                    target.y
+                    - centerY
+                ) * pulse;
+
+
+            const smooth =
+                1
+                - Math.exp(
+                    -8 * dt
+                );
+
+
+            particle.x +=
+                (
+                    targetX
+                    - particle.x
+                ) * smooth;
+
+
+            particle.y +=
+                (
+                    targetY
+                    - particle.y
+                ) * smooth;
+        }
+
+
+        if (
+            stateTime >= HEART_TIME
+        ) {
+
+            changeState(
+                DISSOLVE
+            );
+        }
+    }
+
+
+    // ==================================================
+    // МЕДЛЕННОЕ РАСТВОРЕНИЕ
+    // ==================================================
+
+    else if (
+        state === DISSOLVE
+    ) {
+
+        let globalProgress =
+            stateTime
+            / DISSOLVE_TIME;
+
+
+        globalProgress =
+            Math.max(
+                0,
+                Math.min(
+                    1,
+                    globalProgress
+                )
+            );
+
+
+        for (
+            const particle
+            of particles
+        ) {
+
+            /*
+                У каждой надписи свой момент
+                начала растворения.
+            */
+
+            let progress =
+                (
+                    globalProgress
+                    - particle.dissolveDelay
+                    * 0.45
+                )
+                / 0.7;
+
+
+            progress =
+                Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        progress
+                    )
+                );
+
+
+            progress =
+                smootherStep(
+                    progress
+                );
+
+
+            // Направление растворения
+
+            const distance =
+                particle.dissolveDistance
+                * progress;
+
+
+            const targetX =
+                particle.x
+                + Math.cos(
+                    particle.dissolveAngle
+                )
+                * distance
+                * dt
+                * 5;
+
+
+            const targetY =
+                particle.y
+                + Math.sin(
+                    particle.dissolveAngle
+                )
+                * distance
+                * dt
+                * 5;
+
+
+            /*
+                Лёгкий дрейф вместо
+                резкого разлёта.
+            */
+
+            particle.x +=
+                (
+                    targetX
+                    - particle.x
+                ) * 0.04;
+
+
+            particle.y +=
+                (
+                    targetY
+                    - particle.y
+                ) * 0.04;
+        }
+
+
+        if (
+            stateTime >= DISSOLVE_TIME
+        ) {
+
+            changeState(
+                CENTER
+            );
+        }
+    }
+}
+
+
+// ==================================================
+// ФОН
+// ==================================================
+
+function drawBackground() {
+
+    const gradient =
+        ctx.createRadialGradient(
+            canvas.width / 2,
+            canvas.height / 2,
+            0,
+
+            canvas.width / 2,
+            canvas.height / 2,
+            Math.max(
+                canvas.width,
+                canvas.height
+            ) * 0.65
+        );
+
+
+    gradient.addColorStop(
+        0,
+        "#120914"
+    );
+
+
+    gradient.addColorStop(
+        0.45,
+        "#0b0610"
+    );
+
+
+    gradient.addColorStop(
+        1,
+        "#05030a"
+    );
+
+
+    ctx.fillStyle =
+        gradient;
+
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+}
+
+
+// ==================================================
+// ФОНОВЫЕ ЧАСТИЦЫ
+// ==================================================
+
+function drawBackgroundParticles() {
+
+    const now =
+        performance.now();
+
+
+    for (
+        const particle
+        of backgroundParticles
+    ) {
+
+        const alpha =
+            particle.alpha
+            + Math.sin(
+                now * 0.001
+                + particle.phase
+            ) * 0.05;
+
+
+        ctx.beginPath();
+
+
+        ctx.arc(
+            particle.x,
+            particle.y,
+            particle.radius,
+            0,
+            Math.PI * 2
+        );
+
+
+        ctx.fillStyle =
+            `rgba(
+                255,
+                180,
+                215,
+                ${Math.max(
+                    0.02,
+                    alpha
+                )}
+            )`;
+
+
+        ctx.fill();
+    }
+}
+
+
+// ==================================================
+// ОРЕОЛ
+// ==================================================
+
+function drawHeartAura() {
+
+    /*
+        Ореол всегда находится
+        строго в центре.
+
+        Поэтому он тоже не вращается.
+    */
+
+    const pulse =
+        1
+        + Math.sin(
+            performance.now()
+            * 0.002
+        ) * 0.04;
+
+
+    const aura =
+        ctx.createRadialGradient(
+            canvas.width / 2,
+            canvas.height / 2,
+            20,
+
+            canvas.width / 2,
+            canvas.height / 2,
+            260 * pulse
+        );
+
+
+    aura.addColorStop(
+        0,
+        "rgba(255, 120, 180, 0.07)"
+    );
+
+
+    aura.addColorStop(
+        0.5,
+        "rgba(255, 100, 170, 0.025)"
+    );
+
+
+    aura.addColorStop(
+        1,
+        "rgba(255, 100, 170, 0)"
+    );
+
+
+    ctx.fillStyle =
+        aura;
+
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+}
+
+
+// ==================================================
+// НАДПИСИ
+// ==================================================
+
+function drawTextParticles() {
+
+    const now =
+        performance.now();
+
+
+    for (
+        const particle
+        of particles
+    ) {
+
+        // ==================================================
+        // БАЗОВАЯ ЯРКОСТЬ
+        // ==================================================
+
+        let alpha =
+            particle.brightness
+            + Math.sin(
+                now * 0.002
+                + particle.offset
+            ) * 0.08;
+
+
+        // ==================================================
+        // РАСТВОРЕНИЕ
+        // ==================================================
+
+        if (
+            state === DISSOLVE
+        ) {
+
+            let globalProgress =
+                stateTime
+                / DISSOLVE_TIME;
+
+
+            let dissolveProgress =
+                (
+                    globalProgress
+                    - particle.dissolveDelay
+                    * 0.45
+                )
+                / 0.7;
+
+
+            dissolveProgress =
+                Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        dissolveProgress
+                    )
+                );
+
+
+            dissolveProgress =
+                smootherStep(
+                    dissolveProgress
+                );
+
+
+            /*
+                Исчезновение очень плавное.
+            */
+
+            alpha *=
+                1
+                - dissolveProgress;
+        }
+
+
+        alpha =
+            Math.max(
+                0,
+                Math.min(
+                    1,
+                    alpha
+                )
+            );
+
+
+        // ==================================================
+        // РАЗМЕР
+        // ==================================================
+
+        const fontSize =
+            particle.size
+            + Math.sin(
+                now * 0.0015
+                + particle.offset
+            ) * 0.7;
+
+
+        ctx.font =
+            `bold ${fontSize}px Arial`;
+
+        ctx.textAlign =
+            "center";
+
+        ctx.textBaseline =
+            "middle";
+
+
+        // ==================================================
+        // СВЕЧЕНИЕ
+        // ==================================================
+
+        ctx.shadowColor =
+            `rgba(
+                255,
+                140,
+                195,
+                ${GLOW_STRENGTH * alpha}
+            )`;
+
+
+        ctx.shadowBlur =
+            GLOW_BLUR;
+
+
+        // ==================================================
+        // ЦВЕТ
+        // ==================================================
+
+        ctx.fillStyle =
+            `rgba(
+                255,
+                160,
+                200,
+                ${alpha}
+            )`;
+
+
+        // ==================================================
+        // ТЕКСТ
+        // ==================================================
+
+        ctx.fillText(
+            TEXT,
+            particle.x,
+            particle.y
+        );
+
+
+        ctx.shadowBlur =
+            0;
+    }
+}
+
+
+// ==================================================
+// DRAW
+// ==================================================
+
+function draw() {
+
+    drawBackground();
+
+    drawBackgroundParticles();
+
+    drawHeartAura();
+
+    drawTextParticles();
+}
+
+
+// ==================================================
+// ANIMATION LOOP
+// ==================================================
+
+let previousTime =
+    performance.now();
+
+
+function animationLoop(
+    currentTime
+) {
+
+    const dt =
+        Math.min(
+            0.033,
+            (
+                currentTime
+                - previousTime
+            ) / 1000
+        );
+
+
+    previousTime =
+        currentTime;
+
+
+    updateBackground(dt);
+
+    update(dt);
+
+    draw();
+
+
+    requestAnimationFrame(
+        animationLoop
+    );
+}
+
+
+// ==================================================
+// ЗАПУСК
+// ==================================================
+
+requestAnimationFrame(
+    animationLoop
+);
+
+</script>
+
+</body>
+</html>
